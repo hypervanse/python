@@ -1,0 +1,105 @@
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  padding: 0;
+  width: 100%;
+  height: 100%;
+  background: #000;
+  overflow: hidden;
+  font-family: "Courier New", monospace;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+#game-frame {
+  position: relative;
+  width: 100vw;
+  height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #000;
+}
+
+#game-canvas {
+  width: min(100vw, 133.33vh);
+  height: min(75vw, 100vh);
+  aspect-ratio: 4 / 3;
+  image-rendering: optimizeSpeed;
+  display: block;
+  background: #000;
+}
+
+#crt-overlay {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background:
+    repeating-linear-gradient(
+      to bottom,
+      rgba(0, 0, 0, 0.18) 0px,
+      rgba(0, 0, 0, 0.18) 1px,
+      transparent 2px,
+      transparent 3px
+    );
+  mix-blend-mode: multiply;
+  opacity: 0.55;
+}
+
+#crt-overlay::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(ellipse at center, rgba(255,255,255,0) 55%, rgba(0,0,0,0.35) 100%);
+}
+
+#touch-controls {
+  display: none;
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 10;
+}
+
+@media (pointer: coarse) {
+  #touch-controls { display: block; }
+}
+
+.touch-col {
+  position: absolute;
+  bottom: 18px;
+  display: flex;
+  gap: 12px;
+  pointer-events: auto;
+}
+.touch-col.left { left: 18px; align-items: flex-end; }
+.touch-col.right { right: 18px; flex-direction: column; align-items: flex-end; gap: 10px; }
+
+.touch-btn {
+  width: 68px;
+  height: 68px;
+  border-radius: 50%;
+  border: 2px solid rgba(255,255,255,0.6);
+  background: rgba(20,20,30,0.55);
+  color: #fff;
+  font-size: 20px;
+  font-weight: 700;
+  font-family: inherit;
+  touch-action: manipulation;
+}
+.touch-btn.small { width: 58px; height: 58px; font-size: 12px; background: rgba(255,120,40,0.5); }
+.touch-btn:active { background: rgba(255,255,255,0.35); }
+
+.touch-btn.start {
+  position: absolute;
+  top: 18px;
+  right: 18px;
+  width: auto;
+  height: 44px;
+  border-radius: 8px;
+  padding: 0 16px;
+  font-size: 14px;
+  pointer-events: auto;
+  background: rgba(255, 210, 40, 0.5);
+}

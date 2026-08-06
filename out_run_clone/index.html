@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no" />
+  <title>OUT RUN — Arcade Clone</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' fill='%23c81010'/%3E%3Ctext x='16' y='23' font-size='20' text-anchor='middle' fill='%23fff'%3E%F0%9F%8F%8E%EF%B8%8F%3C/text%3E%3C/svg%3E" />
+  <link rel="stylesheet" href="index.css" />
+</head>
+<body>
+  <div id="game-frame">
+    <canvas id="game-canvas" width="1024" height="768"></canvas>
+    <div id="crt-overlay"></div>
+  </div>
+
+  <div id="touch-controls">
+    <div class="touch-col left">
+      <button id="btn-left" class="touch-btn" aria-label="Steer left">◀</button>
+      <button id="btn-right" class="touch-btn" aria-label="Steer right">▶</button>
+    </div>
+    <div class="touch-col right">
+      <button id="btn-gear" class="touch-btn small" aria-label="Shift gear">GEAR</button>
+      <button id="btn-brake" class="touch-btn" aria-label="Brake">BRK</button>
+      <button id="btn-accel" class="touch-btn" aria-label="Accelerate">GAS</button>
+    </div>
+    <button id="btn-start" class="touch-btn start" aria-label="Start / Select">ENTER</button>
+  </div>
+
+  <script type="module" src="js/main.js"></script>
+</body>
+</html>
