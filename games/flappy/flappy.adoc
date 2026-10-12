@@ -1,0 +1,212 @@
+= FLAPPY
+:toc: left
+:toclevels: 2
+:icons: font
+
+Flappy Bird clone for Pydroid 3 (Android) and for desktop. It is pure Python plus pygame.
+It ships no image, sound or font files: every picture is drawn with pygame primitives, and
+every sound and piece of music is synthesized when the program starts.
+
+== Layout
+
+Nothing in the project refers to an absolute path, so the folder can live anywhere.
+
+----
+flappy/                          <- this folder; copy it anywhere
+  pyproject.toml                 <- project description read by uv: dependencies, entry point, tools
+  uv.lock                        <- exact versions, written by uv; commit it
+  flappy.adoc                    <- this document
+  src/flappy/                    <- the package (src layout: nothing is importable by accident)
+    __main__.py                  <- entry point: sets SDL env vars, then runs the app or the self-test
+    app.py                       <- startup with a loading screen, then the real main loop
+    config.py                    <- game identity, resolution, timing, palette
+    selftest.py                  <- headless end-to-end test of the whole app
+    engine/                      <- REUSABLE: nothing here knows about birds or pipes
+      display.py                   window and logical canvas, coordinate mapping
+      inputs.py                    SDL events -> one clean input frame per tick
+      state.py                     APP and AUDIO: the shared mutable state
+      synth.py                     waveform generators that return raw PCM
+      sfx.py                       mixer setup and the sound-effect bank
+      music.py                     procedural adaptive music sequencer
+      storage.py                   SQLite: scores, settings, lifetime stats, trophies
+      ui.py                        text, buttons, toasts, particles, popups, shake
+      screens.py                   menus and the navigation graph (do_action)
+      run.py                       run lifecycle: start, finish, trophy checks
+      loop.py                      frame() and render()
+    game/                        <- FLAPPY ONLY: replace this package to make another game
+      __init__.py                  the contract the engine relies on (read this first)
+      tuning.py                    every difficulty knob, with units and effects
+      rules.py                     trophies, skins, lifetime currency, run summary lines
+      state.py                     run state, flap, touch-to-flap mapping
+      physics.py                   gravity, collisions, scoring
+      pipes.py                     pipe geometry, difficulty curve, spawning
+      draw.py                      backdrop, bird sprites, pipes, HUD
+      sfx.py                       sounds that only Flappy needs
+      bot.py                       autopilot for the self-test and screenshots
+  tests/                         <- pytest: unit tests and a feature gate
+  tools/snapshot.py              <- renders every screen to a PNG for a visual check
+----
+
+== Quick start with uv
+
+Why uv instead of pip and a hand-made venv: `uv.lock` pins every package version, so the
+same code gets the same pygame on every machine. `uv sync` builds the environment in one
+step, and `uv run` executes inside it without any `activate` script, which differs between
+Windows, macOS and Linux.
+
+[source,bash]
+----
+# 1. Install uv once. The standalone installer is a single script; it does not use pip.
+curl -LsSf https://astral.sh/uv/install.sh | sh     # -L follow redirects, -s silent, -S show errors, -f fail on HTTP errors
+# Windows PowerShell instead:
+#   powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | iex"
+
+# 2. Enter the project folder and build .venv/ with the exact versions from uv.lock.
+cd flappy                                           # the folder that contains pyproject.toml
+uv sync --verbose                                   # --verbose prints every resolution and install step
+uv sync --no-dev --verbose                          # optional: runtime only, without pytest and ruff
+
+# 3. Play.
+uv run flappy                                       # runs the `flappy` script declared in pyproject.toml
+
+# 4. Play from any other folder, without cd.
+uv run --project /path/to/flappy flappy             # --project tells uv which pyproject.toml to use
+
+# 5. Headless self-test. Exit code 0 means every check passed.
+uv run flappy --selftest; echo "exit=$?"           # the second command prints the exit code of the first
+
+# 6. Unit tests with full detail.
+uv run pytest -vv --tb=long                         # -vv: one line per test; --tb=long: full tracebacks
+
+# 7. Lint: undefined names, unused imports, import order.
+uv run ruff check src tests                         # ruff is in the dev group, so uv runs the locked version
+
+# 8. Screenshots of every screen, written to ./shots/ (current folder).
+uv run python tools/snapshot.py shots               # the argument is the output folder
+----
+
+== Pydroid 3 (Android)
+
+Pydroid 3 runs Python on the phone with its own pygame. uv is a desktop tool, so the locked
+environment does not apply there. The code itself needs only pygame and the standard library.
+
+. Copy the `src/flappy` folder to the phone, keeping the `flappy` folder name.
+. In Pydroid's terminal, `cd` to the folder that contains `flappy/` and run `python -m flappy`.
+
+[WARNING]
+====
+This path has not been tested on a device. The project was built and checked on a Linux
+machine with pygame 2.6, and the Pydroid instructions are based on how Pydroid starts
+packages, not on a run on a phone. Treat them as a starting point.
+====
+
+== Controls
+
+[cols="1,2,2",options="header"]
+|===
+| Action | Touch | Keyboard (desktop)
+| Flap, and start the run from the title screen | Tap anywhere | `SPACE`, `UP`, `W`
+| Pause | Tap the pause button (top right) or the Android back key | `P` or `ESC`
+| Menus | Tap the buttons (they fire when you lift your finger) | `SPACE` or `ENTER` starts or retries
+| Enter initials | Tap the arrows, or type letters | Type letters; `ENTER` confirms
+|===
+
+Why a flap fires when the finger goes down, not when it comes up: waiting for the release adds
+about 100 ms of lag, which a timing game makes obvious. Menu buttons work the other way, so
+sliding your finger off a button cancels the tap.
+
+Why one touch never flaps twice: Android reports one touch as both a FINGER event and a MOUSE
+event. `engine/inputs.py` uses one of the two per frame and drops a second "down" that arrives
+within 80 ms and 30 px of the first.
+
+== How the code is split, and why
+
+The split follows one rule: the engine must not know what a bird is.
+
+* `engine/` holds everything a different game would also need: the window, touch input, the
+  synthesizer, the mixer, the adaptive music, the database, the UI kit, the menus, the run
+  lifecycle and the main loop.
+* `game/` holds the game. It exposes a fixed set of names, listed in `game/__init__.py`. The
+  engine calls those names and nothing else, so swapping the game means swapping one package.
+* `config.py` holds identity and palette, which both halves read.
+* `engine/state.py` holds the two shared dictionaries, `APP` and `AUDIO`. Keeping the state
+  in one place makes a bug easier to find: every write goes through a known name.
+
+The code is deliberately procedural: functions that operate on plain dicts. A class hierarchy
+would hide what each frame does, and the self-test drives `frame()` directly with synthetic
+input, which is easier to read as a list of steps than as a set of method calls.
+
+== Tuning the difficulty
+
+Every knob lives in `src/flappy/game/tuning.py`, with its unit in the comment beside it.
+Units are logical pixels (the canvas is always 360 x 640, and the window scales it),
+seconds, px/s and px/s^2.
+
+[cols="1,1,2,2",options="header"]
+|===
+| Knob | Default | Raise it | Lower it
+| `GRAVITY` | 1500 px/s^2 | heavier bird, harder | floatier, easier
+| `FLAP_V` | 440 px/s | each tap lifts higher | shorter hops, more taps needed
+| `MAX_FALL` | 620 px/s | a missed tap is punished harder | more time to recover
+| `GAP_START` | 168 px | easier opening | harder opening
+| `GAP_MIN` | 122 px | easier late game | harder late game
+| `GAP_SHRINK` | 1.5 px per pipe | the gap reaches its minimum sooner | gentler ramp
+| `SPEED_START` / `SPEED_MAX` | 140 / 215 px/s | less reaction time | more time per pipe
+| `SPEED_RAMP` | 1.6 px/s per pipe | faster ramp | gentler ramp
+| `PIPE_SPACING` | 215 px | fewer pipes on screen, more air | denser course
+| `GAP_JUMP_MAX` | 190 px | bigger height swings between pipes | smoother course
+| `HITBOX_HALF` | 10 px | less forgiving | more forgiving (the drawn bird has radius 14)
+| `NEAR_MISS` | 9 px | more "CLOSE!" rewards | fewer
+|===
+
+Why these values suit a finger: one flap rises about 65 px (`FLAP_V^2 / (2 * GRAVITY)`) and
+reaches the top of that rise in about 0.29 s (`FLAP_V / GRAVITY`). Few people can tap faster
+than 6 to 7 times a second, so each tap must do real work. The flap sets the velocity rather
+than adding to it, so a tap while diving lifts exactly as much as a tap while hovering.
+
+Why pipes spawn by distance and not by a timer: the spacing stays at `PIPE_SPACING` even when
+the speed rises or a frame hitches.
+
+== Where scores are saved
+
+The high-score table, settings and lifetime stats go into one SQLite file:
+
+----
+$FLAPPY_DB                          if that environment variable is set (the self-test uses this)
+~/.flappy/flappy.sqlite3            otherwise
+----
+
+Why the home folder: it is private, persistent storage in Pydroid 3, and it does not depend on
+where the project was copied.
+
+Why not the working folder: on Android the folder you open files from can be shared storage
+(`/storage/emulated/0/...`). SQLite's file locking is not reliable there, so the database
+never goes there. If the home folder is not writable, the game still runs and keeps scores
+for that session only.
+
+Why SQLite and not a JSON file: each write is atomic. If the app is killed in the middle of a
+save, the previous table survives, and the leaderboard comes from `ORDER BY score DESC LIMIT`.
+
+== Verification status
+
+[cols="1,3",options="header"]
+|===
+| Checked | How
+| Behaviour, end to end | `uv run flappy --selftest`: 18 checks covering menus, autopilot play, pause,
+resume, background, death, initials, leaderboard and settings after a restart
+| Units | `uv run pytest`: pipe geometry, difficulty curves, flap physics, ground collision
+| Required features are present | `tests/test_features.py` searches the source for each required feature
+| Lint | `uv run ruff check src tests`
+| Layout | `uv run python tools/snapshot.py shots`, then look at the PNG files
+| NOT checked | real touch latency, audio latency on a given phone, frame rate on a slow phone,
+and Pydroid 3 itself
+|===
+
+== Adding another game
+
+. Copy this folder. Change `GAME_ID` and `GAME_TITLE` in `src/flappy/config.py`. `GAME_ID`
+  names the database file, so each game keeps its own scores.
+. Replace the modules in `src/flappy/game/`, keeping the names listed in `game/__init__.py`.
+. Run `uv run flappy --selftest`. Only the game-specific checks in `selftest.py` need editing.
+. Keep the trophy, initials, pause and settings code. They are the parts that make a small
+  game feel finished, and they come from `engine/` without changes.

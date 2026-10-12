@@ -1,0 +1,17 @@
+# .gitignore for the flappy project folder. Git ignores these; uv and the tools recreate them.
+
+# uv's virtual environment: rebuilt by `uv sync`, never committed
+.venv/
+
+# Python bytecode cache
+__pycache__/
+
+# pytest and ruff caches
+.pytest_cache/
+.ruff_cache/
+
+# screenshots made by tools/snapshot.py (they include a throwaway database)
+shots/
+
+# a local high-score database must never be committed by accident
+*.sqlite3
