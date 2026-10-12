@@ -1,0 +1,41 @@
+# pyproject.toml: the one file that describes this project to uv.
+# uv reads it, resolves the exact versions into uv.lock, and creates .venv/ for you.
+# Nothing in it is an absolute path, so the project works from any folder.
+
+[project]
+name = "flappy"
+version = "0.1.0"
+description = "Flappy Bird clone for Pydroid 3 and desktop: pygame only, no asset files"
+readme = { file = "flappy.adoc", content-type = "text/plain" }   # the named AsciiDoc document
+requires-python = ">=3.10"
+dependencies = [
+    "pygame>=2.1",            # the only runtime dependency: drawing, mixer, events, fonts
+]
+
+[project.scripts]
+flappy = "flappy.__main__:main"   # `uv run flappy` calls this function
+
+[build-system]
+requires = ["hatchling"]          # pure-Python build backend, no compiler needed
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/flappy"]         # the src/ layout: code lives under src/flappy/
+
+# Development-only tools. `uv sync` installs this group by default; end users never need it.
+[dependency-groups]
+dev = [
+    "pytest>=8",
+    "ruff>=0.5",
+]
+
+[tool.ruff]
+line-length = 110
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+# E4/E7/E9 = real errors, F = pyflakes (undefined and unused names), I = import order
+select = ["E4", "E7", "E9", "F", "I"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
